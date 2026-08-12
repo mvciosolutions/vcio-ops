@@ -22,7 +22,7 @@ jobs:
           echo "Pinging n8n-main..."
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
             --max-time 25 \
-            "https://automations.vciosolutions.com/login")
+            "https://this-domain-definitely-does-not-exist-12345.invalid/login")
           echo "n8n-main response: ${HTTP_CODE}"
           if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -ge 500 ] || [ "${HTTP_CODE}" = "000" ]; then
             echo "::error::n8n-main returned ${HTTP_CODE} (VPS or n8n process down)"
