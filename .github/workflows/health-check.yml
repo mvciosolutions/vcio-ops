@@ -39,7 +39,7 @@ jobs:
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
             -X HEAD \
             --max-time 25 \
-            "https://automations.vciosolutions.com/webhook/call-qa-intake" || true)
+            "https://automations.vciosolutions.com/webhook/call-qa-intake" || echo "000")
           echo "Intake webhook response: ${HTTP_CODE}"
           # Treat 404 as alive (webhook exists; HEAD not allowed is common).
           # Only 5xx (server error) and 000 (no response) are real failures.
@@ -53,6 +53,10 @@ jobs:
       # Goal: detect VPS server-up, not n8n-up. Hit IP directly so any HTTP
       # response (even 404) proves the VPS is alive — RustDesk runs on the box,
       # not n8n, and we don't care which app answers.
+      #
+      # VPS IP — if Hostinger reassigns this VPS, update the IP here.
+      # Verify with: dig +short rustdesk.vciosolutions.com (if DNS still resolves)
+      # OR check Hostinger dashboard for the VPS IP.
       - name: Ping n8n-tools VPS
         continue-on-error: true
         timeout-minutes: 1
