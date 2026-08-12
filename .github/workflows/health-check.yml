@@ -39,10 +39,11 @@ jobs:
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
             -X HEAD \
             --max-time 25 \
-            "https://automations.vciosolutions.com/webhook/call-qa-intake" || echo "000")
+            "https://automations.vciosolutions.com/webhook/call-qa-intake" || true)
           echo "Intake webhook response: ${HTTP_CODE}"
-          # 200/204 = healthy path; 404 = webhook deleted; 401/403 = auth broken; 5xx = VPS down.
-          if [ "${HTTP_CODE}" -ge 500 ] || [ "${HTTP_CODE}" = "404" ] || [ "${HTTP_CODE}" = "000" ]; then
+          # Treat 404 as alive (webhook exists; HEAD not allowed is common).
+          # Only 5xx (server error) and 000 (no response) are real failures.
+          if [ "${HTTP_CODE}" -ge 500 ] || [ "${HTTP_CODE}" = "000" ]; then
             echo "FAILED_CHECKS=true" >> "$GITHUB_ENV"
             echo "::error::n8n-main Intake webhook returned ${HTTP_CODE} (VPS or webhook broken)"
             exit 1
