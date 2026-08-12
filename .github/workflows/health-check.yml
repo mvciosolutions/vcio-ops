@@ -1,0 +1,68 @@
+name: VPS Health Check
+
+on:
+  schedule:
+    # Every 5 minutes. Times in UTC; matthew's wall-clock alerts will fire at any hour.
+    - cron: '*/5 * * * *'
+  # Allow manual trigger from GitHub Actions tab for ad-hoc verification.
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    # Hard cap so a hung curl never holds the runner for hours.
+    timeout-minutes: 3
+
+    steps:
+      # Check 1: n8n-main responsive.
+      - name: Ping n8n-main health
+        continue-on-error: true
+        timeout-minutes: 1
+        run: |
+          echo "Pinging n8n-main..."
+          HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+            --max-time 25 \
+            "https://automations.vciosolutions.com/login")
+          echo "n8n-main response: ${HTTP_CODE}"
+          if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -ge 500 ] || [ "${HTTP_CODE}" = "000" ]; then
+            echo "::error::n8n-main returned ${HTTP_CODE} (VPS or n8n process down)"
+            exit 1
+          fi
+
+      # Check 2: n8n-main Intake webhook path alive.
+      - name: Ping n8n-main Intake webhook
+        continue-on-error: true
+        timeout-minutes: 1
+        run: |
+          echo "Pinging n8n-main Intake webhook..."
+          HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+            -X HEAD \
+            --max-time 25 \
+            "https://automations.vciosolutions.com/webhook/call-qa-intake")
+          echo "Intake webhook response: ${HTTP_CODE}"
+          # 200/204 = healthy path; 404 = webhook deleted; 401/403 = auth broken; 5xx = VPS down.
+          if [ "${HTTP_CODE}" -ge 500 ] || [ "${HTTP_CODE}" = "404" ] || [ "${HTTP_CODE}" = "000" ]; then
+            echo "::error::n8n-main Intake webhook returned ${HTTP_CODE} (VPS or webhook broken)"
+            exit 1
+          fi
+
+      # Check 3: n8n-tools responsive.
+      - name: Ping n8n-tools health
+        continue-on-error: true
+        timeout-minutes: 1
+        run: |
+          echo "Pinging n8n-tools..."
+          HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+            --max-time 25 \
+            "https://n8n-tools.vciosolutions.com/login")
+          echo "n8n-tools response: ${HTTP_CODE}"
+          if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -ge 500 ] || [ "${HTTP_CODE}" = "000" ]; then
+            echo "::error::n8n-tools returned ${HTTP_CODE} (VPS or n8n process down)"
+            exit 1
+          fi
+
+      # Notify on any failure above.
+      - name: Failure summary
+        if: failure()
+        run: |
+          echo "::error::One or more VPS health checks FAILED. See job logs above."
