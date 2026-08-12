@@ -22,7 +22,8 @@ jobs:
           echo "Pinging n8n-main..."
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
             --max-time 25 \
-            "https://automations.vciosolutions.com/login" || echo "000")
+            "https://automations.vciosolutions.com/login" || true)
+          HTTP_CODE=${HTTP_CODE:-000}
           echo "n8n-main response: ${HTTP_CODE}"
           if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -ge 500 ] || [ "${HTTP_CODE}" = "000" ]; then
             echo "FAILED_CHECKS=true" >> "$GITHUB_ENV"
@@ -39,7 +40,8 @@ jobs:
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
             -X HEAD \
             --max-time 25 \
-            "https://automations.vciosolutions.com/webhook/call-qa-intake" || echo "000")
+            "https://automations.vciosolutions.com/webhook/call-qa-intake" || true)
+          HTTP_CODE=${HTTP_CODE:-000}
           echo "Intake webhook response: ${HTTP_CODE}"
           # Treat 404 as alive (webhook exists; HEAD not allowed is common).
           # Only 5xx (server error) and 000 (no response) are real failures.
@@ -64,7 +66,8 @@ jobs:
           echo "Pinging n8n-tools (rustdesk relay VPS, IP direct)..."
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
             --max-time 25 \
-            "http://2.24.213.194/" || echo "000")
+            "http://2.24.213.194/" || true)
+          HTTP_CODE=${HTTP_CODE:-000}
           echo "n8n-tools response: ${HTTP_CODE}"
           # VPS liveness only: any HTTP response means server-up.
           # 000 = no response (curl failed, host unreachable, network down).
