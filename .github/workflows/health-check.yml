@@ -49,19 +49,24 @@ jobs:
             exit 1
           fi
 
-      # Check 3: rustdesk-relay (formerly misconfigured as n8n-tools) responsive.
-      - name: Ping n8n-tools health
+      # Check 3: rustdesk-relay VPS (formerly misconfigured as n8n-tools).
+      # Goal: detect VPS server-up, not n8n-up. Hit IP directly so any HTTP
+      # response (even 404) proves the VPS is alive — RustDesk runs on the box,
+      # not n8n, and we don't care which app answers.
+      - name: Ping n8n-tools VPS
         continue-on-error: true
         timeout-minutes: 1
         run: |
-          echo "Pinging n8n-tools (rustdesk relay)..."
+          echo "Pinging n8n-tools (rustdesk relay VPS, IP direct)..."
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
             --max-time 25 \
-            "https://rustdesk.vciosolutions.com/login" || echo "000")
+            "http://2.24.213.194/" || echo "000")
           echo "n8n-tools response: ${HTTP_CODE}"
-          if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -ge 500 ] || [ "${HTTP_CODE}" = "000" ]; then
+          # VPS liveness only: any HTTP response means server-up.
+          # 000 = no response (curl failed, host unreachable, network down).
+          if [ "${HTTP_CODE}" = "000" ]; then
             echo "FAILED_CHECKS=true" >> "$GITHUB_ENV"
-            echo "::error::n8n-tools returned ${HTTP_CODE} (VPS or n8n process down)"
+            echo "::error::n8n-tools VPS unreachable: ${HTTP_CODE}"
             exit 1
           fi
 
