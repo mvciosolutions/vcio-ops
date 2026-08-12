@@ -49,15 +49,15 @@ jobs:
             exit 1
           fi
 
-      # Check 3: n8n-tools responsive.
+      # Check 3: rustdesk-relay (formerly misconfigured as n8n-tools) responsive.
       - name: Ping n8n-tools health
         continue-on-error: true
         timeout-minutes: 1
         run: |
-          echo "Pinging n8n-tools..."
+          echo "Pinging n8n-tools (rustdesk relay)..."
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
             --max-time 25 \
-            "https://n8n-tools.vciosolutions.com/login" || echo "000")
+            "https://rustdesk.vciosolutions.com/login" || echo "000")
           echo "n8n-tools response: ${HTTP_CODE}"
           if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -ge 500 ] || [ "${HTTP_CODE}" = "000" ]; then
             echo "FAILED_CHECKS=true" >> "$GITHUB_ENV"
