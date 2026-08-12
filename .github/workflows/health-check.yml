@@ -25,6 +25,7 @@ jobs:
             "https://this-domain-definitely-does-not-exist-12345.invalid/login")
           echo "n8n-main response: ${HTTP_CODE}"
           if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -ge 500 ] || [ "${HTTP_CODE}" = "000" ]; then
+            echo "FAILED_CHECKS=true" >> "$GITHUB_ENV"
             echo "::error::n8n-main returned ${HTTP_CODE} (VPS or n8n process down)"
             exit 1
           fi
@@ -42,6 +43,7 @@ jobs:
           echo "Intake webhook response: ${HTTP_CODE}"
           # 200/204 = healthy path; 404 = webhook deleted; 401/403 = auth broken; 5xx = VPS down.
           if [ "${HTTP_CODE}" -ge 500 ] || [ "${HTTP_CODE}" = "404" ] || [ "${HTTP_CODE}" = "000" ]; then
+            echo "FAILED_CHECKS=true" >> "$GITHUB_ENV"
             echo "::error::n8n-main Intake webhook returned ${HTTP_CODE} (VPS or webhook broken)"
             exit 1
           fi
@@ -57,12 +59,18 @@ jobs:
             "https://n8n-tools.vciosolutions.com/login")
           echo "n8n-tools response: ${HTTP_CODE}"
           if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -ge 500 ] || [ "${HTTP_CODE}" = "000" ]; then
+            echo "FAILED_CHECKS=true" >> "$GITHUB_ENV"
             echo "::error::n8n-tools returned ${HTTP_CODE} (VPS or n8n process down)"
             exit 1
           fi
 
       # Notify on any failure above.
       - name: Failure summary
-        if: failure()
+        if: always()
         run: |
-          echo "::error::One or more VPS health checks FAILED. See job logs above."
+          if [ -n "${FAILED_CHECKS:-}" ]; then
+            echo "::error::One or more VPS health checks FAILED — see job logs above."
+            exit 1
+          else
+            echo "All VPS health checks passed."
+          fi
