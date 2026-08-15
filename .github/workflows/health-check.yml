@@ -10,19 +10,20 @@ on:
 jobs:
   health-check:
     runs-on: ubuntu-latest
-    # Raised from 3 to 6 to accommodate worst-case retries across 3 sequential probes.
-    timeout-minutes: 6
+    # ponytail: bumped from 6 to 9 min to accommodate 60s curl x3 retries per probe;
+    # trade-off: real outage alerts now take ~9 min instead of ~4 min.
+    timeout-minutes: 9
 
     steps:
       # Check 1: n8n-main responsive.
       - name: Ping n8n-main health
         continue-on-error: true
-        # Raised from 1 to 2 to allow 25s x3 curl + 5s x2 backoff per probe.
-        timeout-minutes: 2
+        # ponytail: bumped from 2 to 3 min to let curl's 60s x3 + backoff finish.
+        timeout-minutes: 3
         run: |
           echo "Pinging n8n-main..."
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
-            --max-time 25 \
+            --max-time 60 \
             --retry 2 --retry-delay 5 \
             --retry-connrefused --retry-all-errors \
             "https://automations.vciosolutions.com/login" || true)
@@ -37,12 +38,12 @@ jobs:
       # Check 2: n8n-main Intake webhook path alive.
       - name: Ping n8n-main Intake webhook
         continue-on-error: true
-        timeout-minutes: 2
+        timeout-minutes: 3
         run: |
           echo "Pinging n8n-main Intake webhook..."
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
             -X HEAD \
-            --max-time 25 \
+            --max-time 60 \
             --retry 2 --retry-delay 5 \
             --retry-connrefused --retry-all-errors \
             "https://automations.vciosolutions.com/webhook/call-qa-intake" || true)
@@ -66,11 +67,11 @@ jobs:
       # OR check Hostinger dashboard for the VPS IP.
       - name: Ping n8n-tools VPS
         continue-on-error: true
-        timeout-minutes: 2
+        timeout-minutes: 3
         run: |
           echo "Pinging n8n-tools (rustdesk relay VPS, IP direct)..."
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
-            --max-time 25 \
+            --max-time 60 \
             --retry 2 --retry-delay 5 \
             --retry-connrefused --retry-all-errors \
             "http://2.24.213.194/" || true)
