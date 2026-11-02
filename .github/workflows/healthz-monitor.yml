@@ -1,0 +1,73 @@
+name: healthz-monitor
+
+# External liveness monitor for the production n8n instance.
+#
+# Runs on GitHub's infrastructure, NOT on either Hostinger VPS, so a
+# simultaneous outage of both VPSes still produces an alert. The in-VPS
+# mutual-ping checks cannot cover that case -- they die with the VPSes.
+#
+# Target: https://automations.vciosolutions.com/healthz
+# /healthz is public and unauthenticated, so NO secret is used or needed.
+#
+# Alert channel: GitHub's own failed-workflow notification. For scheduled
+# runs GitHub sends it to the user who created the workflow (the repo owner).
+# No third-party account, no token, no webhook.
+
+on:
+  schedule:
+    # GitHub's documented minimum scheduled interval is 5 minutes
+    # ("The shortest interval you can run scheduled workflows is once every
+    # 5 minutes."), so a 1-minute cron cannot be honored here.
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Override target URL (leave blank for the production endpoint)'
+        required: false
+        default: ''
+
+permissions: {}
+
+concurrency:
+  group: healthz-monitor
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Probe /healthz
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe healthz endpoint
+        env:
+          OVERRIDE: ${{ inputs.url }}
+        run: |
+          TARGET="${OVERRIDE:-https://automations.vciosolutions.com/healthz}"
+          echo "target=$TARGET"
+
+          # Clear any stale body first: a failed curl never writes the file,
+          # so without this the log would show the previous run's body.
+          rm -f /tmp/healthz-body.txt
+
+          rc=0
+          code=$(curl -sS -o /tmp/healthz-body.txt -w '%{http_code}' \
+                   --connect-timeout 5 --max-time 10 "$TARGET") || rc=$?
+
+          echo "curl_exit=$rc http_code=$code"
+          echo "--- body ---"
+          cat /tmp/healthz-body.txt 2>/dev/null || true
+          echo
+
+          if [ "$rc" -ne 0 ]; then
+            echo "FAIL: request failed (curl exit $rc)"
+            exit 1
+          fi
+          if [ "$code" != "200" ]; then
+            echo "FAIL: expected HTTP 200, got $code"
+            exit 1
+          fi
+          if ! grep -qE '"status"[[:space:]]*:[[:space:]]*"ok"' /tmp/healthz-body.txt; then
+            echo "FAIL: body did not report status ok"
+            exit 1
+          fi
+          echo "OK: $TARGET returned 200 with status ok"
